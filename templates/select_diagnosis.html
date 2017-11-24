@@ -1,0 +1,23 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Select Principal
+{% endblock %}
+
+{% block main %}
+    <form action="/diagnose" method="post">
+        <div class="form-group">
+            <select class="form-control" name="principal_id">
+                <option disabled selected value="">Principal</option>
+
+                {% for principal in principals %}
+
+                <option value="{{ principal.id }}"> {{ principal.name }} </option>
+
+                {% endfor %}
+
+            </select>
+        </div>
+        <button class="btn btn-primary" type="submit">Get Questions</button>
+    </form>
+{% endblock %}

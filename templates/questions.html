@@ -1,0 +1,22 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Select Principal
+{% endblock %}
+
+{% block main %}
+    <form action="/probabilities" method="post">
+        <div class="form-group">
+            <input class="form-control" name="principal" value="{{principal}}" type="hidden"/>
+        </div>
+        {% for question in questions %}
+        <br>
+        <div class="form-group">
+            <label>{{question.question}}</label> <br>
+            <input type="radio" class="form-control" name="{{question.id}}" value="1">Yes<br>
+            <input type="radio" class="form-control" name="{{question.id}}" value="0" checked>No<br>
+        </div>
+        {% endfor %}
+        <button class="btn btn-primary" type="submit">Get Diagnosis</button>
+    </form>
+{% endblock %}
