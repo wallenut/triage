@@ -80,8 +80,7 @@ def probabilities():
     data = request.form.to_dict()
     principal = int(data['principal'])
     patient = list(map(int, list(data.values())[1:]))
-    calculate_probabilities(principal, patient)
-    return redirect("/")
+    return calculate_probabilities(principal, patient)
 
 ####################
 ####  Methods  #####

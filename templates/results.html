@@ -1,0 +1,19 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Diagnosis Results
+{% endblock %}
+
+{% block main %}
+    <table class="table table-striped">
+        <tbody>
+            {% for i in range(labels|length) %}
+                <tr>
+                    <td>
+                        {{labels[i]["name"].ljust(40) + "with probability " + percents[i]|string}}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}
