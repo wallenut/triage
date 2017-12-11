@@ -48,6 +48,19 @@ def register():
         return render_template("register.html")
     else:
         session["user_id"] = request.form.get("username")
+        if request.form.get("doctor"):
+            session["doctor"] = 1
+        return redirect("/")
+
+@app.route("/addLikelihoods", methods=["GET", "POST"])
+def addLikelihoods():
+    """Handle requests for / via GET (and POST)"""
+    if request.method == "GET":
+        principals = db.execute("SELECT id, name FROM principals")
+        return render_template("select_diagnosis.html", principals=principals, action="addLikelihoods")
+    elif request.method == "POST":
+        principal = request.form.get("principal_id")
+        print (principal)
         return redirect("/")
 
 @app.route("/login", methods=["GET", "POST"])
@@ -65,8 +78,8 @@ def login():
 def diagnose():
     #display the principals listed as a select option
     if request.method == "GET":
-        principals = db.execute("SELECT id, name FROM principals");
-        return render_template("select_diagnosis.html", principals=principals)
+        principals = db.execute("SELECT id, name FROM principals")
+        return render_template("select_diagnosis.html", principals=principals, action="diagnose")
     elif request.method == "POST":
         principal = request.form.get("principal_id")
         print (principal)

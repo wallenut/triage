@@ -5,7 +5,7 @@
 {% endblock %}
 
 {% block main %}
-    <form action="/diagnose" method="post">
+    <form action="/{{action}}" method="post">
         <div class="form-group">
             <select class="form-control" name="principal_id">
                 <option disabled selected value="">Principal</option>
