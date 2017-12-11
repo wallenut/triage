@@ -130,8 +130,6 @@ def calculate_probabilities(principal, patient):
 
     # print diagnoses
     return render_template("results.html", percents=perc_over, labels=labels_over)
-    for i in range(len(labels_over)):
-    	print(labels_over[i]["name"].ljust(40) + "with probability " + str(perc_over[i]))
 
 def get_table(principal):
     """Given principal symptom id, get all likelihoods for it and fill empty table positions with 1s"""
