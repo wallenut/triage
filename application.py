@@ -41,16 +41,28 @@ def index():
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
-    """Handle requests for / via GET (and POST)"""
-    if "user_id" in session.keys():
+    """Register user for an account."""
+    # POST
+    if request.method == "POST":
+        dup = db.execute("SELECT * FROM users WHERE username = :username", username=request.form.get("username"))
+        if len(dup) != 0:
+            return apology("username taken!")
+
+        # Add user to database
+        id = db.execute("INSERT INTO users (username, hash, doctor) VALUES (:username, :hash, :doctor)",
+                        username=request.form.get("username"),
+                        hash=generate_password_hash(request.form.get("password")),
+                        doctor=int(request.form.get("doctor") == "yes"))
+        # Log user in
+        session["user_id"] = id
+
+        # Let user know they're registered
+        flash("Registered!")
         return redirect("/")
-    elif request.method == "GET":
-        return render_template("register.html")
+
+    # GET
     else:
-        session["user_id"] = request.form.get("username")
-        if request.form.get("doctor"):
-            session["doctor"] = 1
-        return redirect("/")
+        return render_template("register.html")
 
 @app.route("/addLikelihoods", methods=["GET", "POST"])
 # @login_required
@@ -114,12 +126,26 @@ def logout():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+
     if "user_id" in session.keys():
         return redirect("/")
     elif request.method == "GET":
-        return render_template("register.html")
+        return render_template("login.html")
     else:
-        session["user_id"] = request.form.get("username")
+        session.clear()
+
+        # Query database for username
+        rows = db.execute("SELECT * FROM users WHERE username = :username",
+                          username=request.form.get("username"))
+
+        # Ensure username exists and password is correct
+        if len(rows) != 1 or not check_password_hash(rows[0]["hash"], request.form.get("password")):
+            return apology("invalid username and/or password", 403)
+
+        # Remember which user has logged in
+        session["user_id"] = rows[0]["id"]
+
+        # Redirect user to home page
         return redirect("/")
 
 @app.route("/diagnose", methods=["GET", "POST"])
@@ -133,147 +159,16 @@ def diagnose():
         principal = request.form.get("principal_id")
         print (principal)
         questions = db.execute("SELECT id, question FROM questions");
-        return render_template("personalInfo.html", principal=principal, questions=questions)
+        return render_template("questions.html", principal=principal, questions=questions)
 
 @app.route("/probabilities", methods=["POST"])
 # @login_required
 def probabilities():
     #display the principals listed as a select option
     data = request.form.to_dict()
-    principal = int(data["principal"])
+    principal = int(data['principal'])
     patient = list(map(int, list(data.values())[1:]))
     return calculate_probabilities(principal, patient)
-
-@app.route("/personalInfo", methods=["POST"])
-def personalInfo():
-    #processess personal info aka select 1-5 and question 6
-    data = request.form.to_dict()
-    print(data)
-    principal = int(data["principal"])
-    answers = []
-    for i in range(5):
-        if i + 1 == int(data["age_range"]):
-            answers.append(1)
-        else:
-            answers.append(0)
-    answers.append(int(data["6"]))
-    #adding default value of 0 for ethnicity - weird question
-    answers.append(0)
-    data.pop("principal", None)
-    data.pop("age_range", None)
-    data.pop("6", None)
-    return render_template("/symptomContext.html", principal=principal, answers=answers, questions=data)
-
-@app.route("/symptomContext", methods=["POST"])
-def symptomContext():
-    data = request.form.to_dict()
-    principal = int(data["principal"])
-    print(principal)
-    data.pop("principal", None)
-    answers = [data[str(i)] for i in range(1, 17)]
-    print(answers)
-    questions = {key: data[key] for key in data if int(key) > 16}
-    print(questions)
-    return render_template("/symptomDescriptions.html", principal=principal, answers=answers, questions=questions)
-
-@app.route("/symptomDescriptions", methods=["POST"])
-def symptomDescriptions():
-    data = request.form.to_dict()
-    principal = int(data["principal"])
-    print(principal)
-    data.pop("principal", None)
-    answers = [data[str(i)] for i in range(1, 21)]
-    print(answers)
-    questions = {key: data[key] for key in data if int(key) > 20}
-    print(questions)
-    return render_template("/coughQuestions.html", principal=principal, answers=answers, questions=questions)
-
-@app.route("/coughQuestions", methods=["POST"])
-def coughQuestions():
-    data = request.form.to_dict()
-    principal = int(data["principal"])
-    print(principal)
-    data.pop("principal", None)
-    answers = [data[str(i)] for i in range(1, 27)]
-    print(answers)
-    questions = {key: data[key] for key in data if int(key) > 26}
-    print(questions)
-    return render_template("/bodyTemperature.html", principal=principal, answers=answers, questions=questions)
-
-@app.route("/bodyTemperature", methods=["POST"])
-def bodyTemperature():
-    data = request.form.to_dict()
-    principal = int(data["principal"])
-    print(principal)
-    data.pop("principal", None)
-    answers = [data[str(i)] for i in range(1, 30)]
-    print(answers)
-    questions = {key: data[key] for key in data if int(key) > 29}
-    print(questions)
-    return render_template("/chillsQuestions.html", principal=principal, answers=answers, questions=questions)
-
-@app.route("/chillsQuestions", methods=["POST"])
-def chillsQuestions():
-    data = request.form.to_dict()
-    principal = int(data["principal"])
-    print(principal)
-    data.pop("principal", None)
-    answers = [data[str(i)] for i in range(1, 37)]
-    print(answers)
-    questions = {key: data[key] for key in data if int(key) > 36}
-    print(questions)
-    return render_template("/noseEyes.html", principal=principal, answers=answers, questions=questions)
-
-@app.route("/noseEyes", methods=["POST"])
-def noseEyes():
-    data = request.form.to_dict()
-    principal = int(data["principal"])
-    print(principal)
-    data.pop("principal", None)
-    answers = [data[str(i)] for i in range(1, 42)]
-    print(answers)
-    questions = {key: data[key] for key in data if int(key) > 41}
-    print(questions)
-    return render_template("/headPain.html", principal=principal, answers=answers, questions=questions)
-
-@app.route("/headPain", methods=["POST"])
-def headPain():
-    data = request.form.to_dict()
-    principal = int(data["principal"])
-    print(principal)
-    data.pop("principal", None)
-    answers = [data[str(i)] for i in range(1, 49)]
-    print(answers)
-    questions = {key: data[key] for key in data if int(key) > 48}
-    print(questions)
-    return render_template("/musclePain.html", principal=principal, answers=answers, questions=questions)
-
-@app.route("/musclePain", methods=["POST"])
-def musclePain():
-    data = request.form.to_dict()
-    principal = int(data["principal"])
-    print(principal)
-    data.pop("principal", None)
-    answers = [data[str(i)] for i in range(1, 56)]
-    print(answers)
-    questions = {key: data[key] for key in data if int(key) > 55}
-    print(questions)
-    return render_template("/duration.html", principal=principal, answers=answers, questions=questions)
-
-@app.route("/duration", methods=["POST"])
-def duration():
-    data = request.form.to_dict()
-    principal = int(data["principal"])
-    print(principal)
-    data.pop("principal", None)
-    answers = [data[str(i)] for i in range(1, 63)]
-    print(answers)
-    questions = {key: data[key] for key in data if int(key) > 62}
-    print(questions)
-    return render_template("/specifics.html", principal=principal, answers=answers, questions=questions)
-
-#add specifics, smoking, and misc questions
-
 
 ####################
 ####  Methods  #####

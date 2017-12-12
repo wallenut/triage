@@ -5,13 +5,24 @@
 {% endblock %}
 
 {% block main %}
-    <form action="/register" method="post">
+    <form action="/register" id="register" method="post">
         <div class="form-group">
             <input autocomplete="off" autofocus class="form-control" name="username" placeholder="Username" type="text"/>
         </div>
         <div class="form-group">
-            <input autocomplete="off" autofocus class="form-control" name="doctor" placeholder="Doctor?" type="text"/>
+            <input class="form-control" name="password" placeholder="Password" type="password"/>
+        </div>
+        <div class="form-group">
+            <input class="form-control" name="confirmation" placeholder="Confirm Password" type="password"/>
+        </div>
+        <div>
+            Doctor? <br>
+            <select name="doctor" size="2">
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+            </select>
         </div>
         <button class="btn btn-primary" type="submit">Register</button>
     </form>
+    <script src="/static/scripts.js"></script>
 {% endblock %}
