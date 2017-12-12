@@ -1,0 +1,28 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Smoking and misc.
+{% endblock %}
+
+{% block main %}
+    <form action="/smoking" method="post">
+        <div class="form-group">
+            <input class="form-control" name="principal" value="{{principal}}" type="hidden"/>
+        </div>
+        {% for i in range(78) %}
+        <div class="form-group">
+            <input type="hidden" class="form-control" name="{{i + 1}}" value="{{answers[i]}}">
+        </div>
+        {% endfor %}
+        <label>Please fill out the questions regarding smoking and other extremities.</label> <br>
+        {% for i in range(79, 93) %}
+            <br>
+            <div class="form-group">
+                <label>{{questions[i|string]}}</label> <br>
+                <input type="radio" class="form-control" name="{{i}}" value="1">Yes<br>
+                <input type="radio" class="form-control" name="{{i}}" value="0" checked>No<br>
+            </div>
+        {% endfor %}
+        <button class="btn btn-primary" type="submit">Next</button>
+    </form>
+{% endblock %}
