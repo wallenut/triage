@@ -53,15 +53,64 @@ def register():
         return redirect("/")
 
 @app.route("/addLikelihoods", methods=["GET", "POST"])
+# @login_required
 def addLikelihoods():
     """Handle requests for / via GET (and POST)"""
     if request.method == "GET":
         principals = db.execute("SELECT id, name FROM principals")
         return render_template("select_diagnosis.html", principals=principals, action="addLikelihoods")
     elif request.method == "POST":
-        principal = request.form.get("principal_id")
+        req = request.form.to_dict()
+        if "newPrincipal" in req:
+            add_principals(req["newPrincipal"])
+            principal = db.execute("SELECT id FROM principals WHERE name = :name", name=req["newPrincipal"])[0]["id"]
+        else:
+            principal = request.form.get("principal_id")
+        oldLikelihoods = db.execute("SELECT * FROM likelihoods WHERE principal = :principal", principal=principal);
+        d = get_diagnoses()
+        q = get_questions()
+        likelihoodMatrix = [[1 for x in range(len(d))] for y in range(len(q))]
+        # print (oldLikelihoods)
+        questions = list(map((lambda x: x["question"]), q))
+        diagnoses = list(map((lambda x: x["name"]), d))
+        print(questions)
+        print(diagnoses)
+        for likelihood in oldLikelihoods:
+            likelihoodMatrix[likelihood["question"] - 1][likelihood["diagnosis"] - 1] = likelihood["likelihood"]
+        print (likelihoodMatrix)
         print (principal)
+        return render_template("updateLikelihoods.html", principal=principal, likelihoodMatrix=likelihoodMatrix, questions=questions, diagnoses=diagnoses)
+
+@app.route("/updateLikelihoods", methods=["POST"])
+# @login_required
+def updateLikelihoods():
+    print("in update likelihoods")
+    updateMatrix = request.form.to_dict()
+    updateMatrix.pop("update", None)
+    p = int(updateMatrix["principal"])
+    updateMatrix.pop("principal", None)
+    print(updateMatrix)
+    for k in updateMatrix:
+        if updateMatrix[k] == "1":
+            continue
+        #split to get question and diagnosis number
+        qdList = k.split(",")
+        q = int(qdList[0])
+        d = int(qdList[1])
+        l = float(updateMatrix[k])
+        updateTest = db.execute("SELECT likelihood FROM likelihoods WHERE principal = :p AND diagnosis = :d AND question = :q", p=p, d=d, q=q)
+        #if we are to update or insert this new likelihood
+        if len(updateTest):
+            db.execute("UPDATE likelihoods SET likelihood = :l WHERE principal = :p AND diagnosis = :d AND question = :q", l=l, p=p, d=d, q=q)
+        else:
+            #we have to insert a new likelihood
+            add_likelihoods(p, d, q, l)
         return redirect("/")
+
+@app.route("/logout", methods=["GET"])
+def logout():
+    session.clear()
+    return redirect("/")
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -175,8 +224,8 @@ def add_questions(question):
 def get_principals():
     return db.execute("SELECT * FROM principals")
 
-def add_principles(name):
-    if db.execute("INSERT INTO principles (name) VALUES (:name)", name=name) is None:
+def add_principals(name):
+    if db.execute("INSERT INTO principals (name) VALUES (:name)", name=name) is None:
         return False
     return True
 

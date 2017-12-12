@@ -18,6 +18,15 @@
 
             </select>
         </div>
-        <button class="btn btn-primary" type="submit">Get Questions</button>
+        <button class="btn btn-primary" type="submit">{% if action == "addLikelihoods" %} Update Likelihood {% else %} Get Diagnosis {% endif %}</button>
     </form>
+    {% if action == "addLikelihoods" %}
+        <br><br>
+        <form action="/{{action}}" method="post">
+        <div class="form-group">
+            <input autocomplete="off" autofocus class="form-control" type="text" name="newPrincipal" placeholder="Enter the name of a new principal">
+        </div>
+        <button class="btn btn-primary" type="submit">Add Likelihoods</button>
+    </form>
+    {% endif %}
 {% endblock %}

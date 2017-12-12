@@ -1,0 +1,30 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Update Likelihoods
+{% endblock %}
+
+{% block main %}
+    <form action="/updateLikelihoods" method="post">
+        <div style="overflow:scroll">
+            <table style="width:100%" border="2" frame=solid rules=rows>
+                <tr>
+                    <th></th>
+                    {% for d in diagnoses %}
+                        <th>{{ d }}</th>
+                    {% endfor %}
+                </tr>
+                {% for i in range(likelihoodMatrix|length) %}
+                    <tr>
+                        <th style>{{questions[i]}}</th>
+                        {% for j in range(likelihoodMatrix[i]|length) %}
+                            <th><input name="{{i + 1}},{{j + 1}}" id="{{i + 1}},{{j + 1}}" type="number" step="0.00001" min="0" value="{{likelihoodMatrix[i][j]}}"></input></th>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            </table>
+        </div>
+        <input type="hidden" name="principal" value="{{principal}}">
+        <input  type="submit" style="float: right; margin: 4px;" name="update" value="Update"/>
+    </form>
+{% endblock %}
