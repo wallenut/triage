@@ -1,0 +1,33 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Head-related Pain
+{% endblock %}
+
+{% block main %}
+    <form action="/headPain" method="post">
+        <div class="form-group">
+            <input class="form-control" name="principal" value="{{principal}}" type="hidden"/>
+        </div>
+        {% for i in range(41) %}
+        <div class="form-group">
+            <input type="hidden" class="form-control" name="{{i + 1}}" value="{{answers[i]}}">
+        </div>
+        {% endfor %}
+        <label>Head related questions.</label> <br>
+        {% for i in range(42, 49) %}
+            <br>
+            <div class="form-group">
+                <label>{{questions[i|string]}}</label> <br>
+                <input type="radio" class="form-control" name="{{i}}" value="1">Yes<br>
+                <input type="radio" class="form-control" name="{{i}}" value="0" checked>No<br>
+            </div>
+        {% endfor %}
+        {% for i in range(49, 93) %}
+        <div class="form-group">
+            <input type="hidden" class="form-control" name="{{i}}" value="{{questions[i|string]}}">
+        </div>
+        {% endfor %}
+        <button class="btn btn-primary" type="submit">Next</button>
+    </form>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Personal Questions
+{% endblock %}
+
+{% block main %}
+    <form action="/personalInfo" method="post">
+        <div class="form-group">
+            <input class="form-control" name="principal" value="{{principal}}" type="hidden"/>
+        </div>
+        <div class="form-group">
+            <select class="form-control" name="age_range">
+                <option disabled selected value="">Age Range</option>
+
+                {% for i in range(5) %}
+                <option value="{{ questions[i].id }}"> {{ questions[i].question }} </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Are you a female?</label> <br>
+            <input type="radio" class="form-control" name="{{questions[5].id}}" value="1">Yes<br>
+            <input type="radio" class="form-control" name="{{questions[5].id}}" value="0" checked>No<br>
+        </div>
+        {% for i in range(6, questions|length) %}
+        <div class="form-group">
+            <input type="hidden" class="form-control" name="{{questions[i].id}}" value="{{questions[i].question}}">
+        </div>
+        {% endfor %}
+        <button class="btn btn-primary" type="submit">Next</button>
+    </form>
+{% endblock %}
