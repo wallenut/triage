@@ -5,4 +5,20 @@
 {% endblock %}
 
 {% block main %}
+    {% if name|length > 0 %}
+        <h2>Welcome {{name}}</h2>
+    {% endif %}
+    {% if history|length > 0 %}
+        <form action="/history" method="post">
+            <div class="form-group">
+                <select class="form-control" name="history_id">
+                    <option disabled selected value="">Your Triage History</option>
+                    {% for h in history %}
+                        <option value="{{ h.history_id }}">{{ h.principal_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button class="btn btn-primary" type="submit">Select</button>
+        </form>
+    {% endif %}
 {% endblock %}

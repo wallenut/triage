@@ -7,7 +7,7 @@
 {% block main %}
     <form action="/bodyTemperature" method="post">
         <div class="form-group">
-            <input class="form-control" name="principal" value="{{principal}}" type="hidden"/>
+            <input class="form-control" name="history" value="{{history}}" type="hidden"/>
         </div>
         {% for i in range(26) %}
         <div class="form-group">

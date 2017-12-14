@@ -35,9 +35,17 @@ db = SQL("sqlite:///triage.db")
 @app.route("/")
 def index():
     """Handle requests for / via GET (and POST)"""
+    name = ""
     if "user_id" in session.keys():
         print (session["user_id"])
-    return render_template("index.html")
+        name = db.execute("SELECT username FROM users WHERE id = :i", i=session["user_id"])[0]["username"]
+        user_history = db.execute("SELECT history.id as history_id, history.user_id as user_id, principals.id as principal_id, principals.name as principal_name FROM\
+        history JOIN principals ON history.principal_id = principals.id WHERE history.user_id = :u GROUP BY history.id", u = session["user_id"])
+        print(user_history)
+        if len(user_history):
+            print("rendering with previous history")
+            return render_template("index.html", history=user_history, name=name)
+    return render_template("index.html", history=[], name=name)
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -65,6 +73,14 @@ def register():
     # GET
     else:
         return render_template("register.html")
+
+@app.route("/history", methods=["POST"])
+def history():
+    history_id = request.form.get("history_id")
+    results = db.execute("SELECT * FROM patient_results WHERE history = :h", h=history_id)
+    labels = [{'id':result["diagnosis_id"], 'name': result["diagnosis_name"]} for result in results]
+    percents = [ result["probability"] for result in results]
+    return render_template("results.html", percents=percents, labels=labels)
 
 @app.route("/addLikelihoods", methods=["GET", "POST"])
 # @login_required
@@ -164,172 +180,170 @@ def diagnose():
         principal = request.form.get("principal_id")
         print (principal)
         questions = db.execute("SELECT id, question FROM questions");
-        return render_template("personalInfo.html", principal=principal, questions=questions)
-
-@app.route("/probabilities", methods=["POST"])
-# @login_required
-def probabilities():
-    #display the principals listed as a select option
-    data = request.form.to_dict()
-    principal = int(data["principal"])
-    patient = list(map(int, list(data.values())[1:]))
-    return calculate_probabilities(principal, patient)
+        history_id = db.execute("INSERT INTO history (user_id, principal_id) VALUES (:u, :p)", u=session["user_id"], p=principal)
+        print("added new id to history")
+        return render_template("personalInfo.html", history=history_id, questions=questions)
 
 @app.route("/personalInfo", methods=["POST"])
 def personalInfo():
     #processess personal info aka select 1-5 and question 6
     data = request.form.to_dict()
     print(data)
-    principal = int(data["principal"])
+    history = int(data["history"])
     answers = []
     for i in range(5):
-        if i + 1 == int(data["age_range"]):
+        if "age_range" in data.keys() and i + 1 == int(data["age_range"]):
             answers.append(1)
         else:
             answers.append(0)
     answers.append(int(data["6"]))
     #adding default value of 0 for ethnicity - weird question
     answers.append(0)
-    data.pop("principal", None)
+    data.pop("history", None)
     data.pop("age_range", None)
     data.pop("6", None)
-    return render_template("/symptomContext.html", principal=principal, answers=answers, questions=data)
+    return render_template("/symptomContext.html", history=history, answers=answers, questions=data)
 
 @app.route("/symptomContext", methods=["POST"])
 def symptomContext():
     data = request.form.to_dict()
-    principal = int(data["principal"])
-    print(principal)
-    data.pop("principal", None)
+    history = int(data["history"])
+    print(history)
+    data.pop("history", None)
     answers = [data[str(i)] for i in range(1, 17)]
     print(answers)
     questions = {key: data[key] for key in data if int(key) > 16}
     print(questions)
-    return render_template("/symptomDescriptions.html", principal=principal, answers=answers, questions=questions)
+    return render_template("/symptomDescriptions.html", history=history, answers=answers, questions=questions)
 
 @app.route("/symptomDescriptions", methods=["POST"])
 def symptomDescriptions():
     data = request.form.to_dict()
-    principal = int(data["principal"])
-    print(principal)
-    data.pop("principal", None)
+    history = int(data["history"])
+    print(history)
+    data.pop("history", None)
     answers = [data[str(i)] for i in range(1, 21)]
     print(answers)
     questions = {key: data[key] for key in data if int(key) > 20}
     print(questions)
-    return render_template("/coughQuestions.html", principal=principal, answers=answers, questions=questions)
+    return render_template("/coughQuestions.html", history=history, answers=answers, questions=questions)
 
 @app.route("/coughQuestions", methods=["POST"])
 def coughQuestions():
     data = request.form.to_dict()
-    principal = int(data["principal"])
-    print(principal)
-    data.pop("principal", None)
+    history = int(data["history"])
+    print(history)
+    data.pop("history", None)
     answers = [data[str(i)] for i in range(1, 27)]
     print(answers)
     questions = {key: data[key] for key in data if int(key) > 26}
     print(questions)
-    return render_template("/bodyTemperature.html", principal=principal, answers=answers, questions=questions)
+    return render_template("/bodyTemperature.html", history=history, answers=answers, questions=questions)
 
 @app.route("/bodyTemperature", methods=["POST"])
 def bodyTemperature():
     data = request.form.to_dict()
-    principal = int(data["principal"])
-    print(principal)
-    data.pop("principal", None)
+    history = int(data["history"])
+    print(history)
+    data.pop("history", None)
     answers = [data[str(i)] for i in range(1, 30)]
     print(answers)
     questions = {key: data[key] for key in data if int(key) > 29}
     print(questions)
-    return render_template("/chillsQuestions.html", principal=principal, answers=answers, questions=questions)
+    return render_template("/chillsQuestions.html", history=history, answers=answers, questions=questions)
 
 @app.route("/chillsQuestions", methods=["POST"])
 def chillsQuestions():
     data = request.form.to_dict()
-    principal = int(data["principal"])
-    print(principal)
-    data.pop("principal", None)
+    history = int(data["history"])
+    print(history)
+    data.pop("history", None)
     answers = [data[str(i)] for i in range(1, 37)]
     print(answers)
     questions = {key: data[key] for key in data if int(key) > 36}
     print(questions)
-    return render_template("/noseEyes.html", principal=principal, answers=answers, questions=questions)
+    return render_template("/noseEyes.html", history=history, answers=answers, questions=questions)
 
 @app.route("/noseEyes", methods=["POST"])
 def noseEyes():
     data = request.form.to_dict()
-    principal = int(data["principal"])
-    print(principal)
-    data.pop("principal", None)
+    history = int(data["history"])
+    print(history)
+    data.pop("history", None)
     answers = [data[str(i)] for i in range(1, 42)]
     print(answers)
     questions = {key: data[key] for key in data if int(key) > 41}
     print(questions)
-    return render_template("/headPain.html", principal=principal, answers=answers, questions=questions)
+    return render_template("/headPain.html", history=history, answers=answers, questions=questions)
 
 @app.route("/headPain", methods=["POST"])
 def headPain():
     data = request.form.to_dict()
-    principal = int(data["principal"])
-    print(principal)
-    data.pop("principal", None)
+    history = int(data["history"])
+    print(history)
+    data.pop("history", None)
     answers = [data[str(i)] for i in range(1, 49)]
     print(answers)
     questions = {key: data[key] for key in data if int(key) > 48}
     print(questions)
-    return render_template("/musclePain.html", principal=principal, answers=answers, questions=questions)
+    return render_template("/musclePain.html", history=history, answers=answers, questions=questions)
 
 @app.route("/musclePain", methods=["POST"])
 def musclePain():
     data = request.form.to_dict()
-    principal = int(data["principal"])
-    print(principal)
-    data.pop("principal", None)
+    history = int(data["history"])
+    print(history)
+    data.pop("history", None)
     answers = [data[str(i)] for i in range(1, 56)]
     print(answers)
     questions = {key: data[key] for key in data if int(key) > 55}
     print(questions)
-    return render_template("/duration.html", principal=principal, answers=answers, questions=questions)
+    return render_template("/duration.html", history=history, answers=answers, questions=questions)
 
 @app.route("/duration", methods=["POST"])
 def duration():
     data = request.form.to_dict()
-    principal = int(data["principal"])
-    print(principal)
-    data.pop("principal", None)
+    history = int(data["history"])
+    print(history)
+    data.pop("history", None)
     answers = [data[str(i)] for i in range(1, 63)]
     print(answers)
     questions = {key: data[key] for key in data if int(key) > 62}
     print(questions)
-    return render_template("/specifics.html", principal=principal, answers=answers, questions=questions)
+    return render_template("/specifics.html", history=history, answers=answers, questions=questions)
 
 @app.route("/specifics", methods=["POST"])
 def specifics():
     data = request.form.to_dict()
-    principal = int(data["principal"])
-    print(principal)
-    data.pop("principal", None)
+    history = int(data["history"])
+    print(history)
+    data.pop("history", None)
     answers = [data[str(i)] for i in range(1, 79)]
     print(answers)
     questions = {key: data[key] for key in data if int(key) > 78}
     print(questions)
-    return render_template("/smoking.html", principal=principal, answers=answers, questions=questions)
+    return render_template("/smoking.html", history=history, answers=answers, questions=questions)
 
 @app.route("/smoking", methods=["POST"])
 def smoking():
     data = request.form.to_dict()
-    principal = int(data["principal"])
-    print(principal)
-    data.pop("principal", None)
+    history = int(data["history"])
+    print(history)
+    data.pop("history", None)
     answers = [int(data[str(i)]) for i in range(1, 93)]
+    print("inserting answers into patient input")
+    for i in range(1, 93):
+        db.execute("INSERT INTO patient_input (history, question, response) VALUES (:h, :q, :r)", h=history, q=i, r=int(data[str(i)]))
     print(answers)
-    return calculate_probabilities(principal, answers)
+    row = db.execute("SELECT principal_id FROM history WHERE id = :h", h=history)
+    if len(row) == 1:
+        return calculate_probabilities(int(row[0]["principal_id"]), answers, history)
 
 ####################
 ####  Methods  #####
 ####################
 
-def calculate_probabilities(principal, patient):
+def calculate_probabilities(principal, patient, history):
     """Given principal symptom id, patient answers (in matrix format), return likelihood calculations"""
 
     # pf = open('patient_findings.csv', 'r')
@@ -357,7 +371,11 @@ def calculate_probabilities(principal, patient):
     perc_over = percentages[percentages > CUTOFF]
     labels_over = diagnoses[np.where(percentages > CUTOFF)[0]]
     print(labels_over)
-
+    print(perc_over)
+    #store diagnosis id, name, and probability in results table
+    print("inserting results into patient results")
+    for i in range(len(labels_over)):
+        db.execute("INSERT INTO patient_results (history, diagnosis_id, diagnosis_name, probability) VALUES (:h, :di, :dn, :p)", h=history, di=labels_over[i]["id"], dn=labels_over[i]["name"], p=perc_over[i])
     # print diagnoses
     return render_template("results.html", percents=perc_over, labels=labels_over)
 
