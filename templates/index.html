@@ -14,7 +14,7 @@
                 <select class="form-control" name="history_id">
                     <option disabled selected value="">Your Triage History</option>
                     {% for h in history %}
-                        <option value="{{ h.history_id }}">{{ h.principal_name }}</option>
+                        <option value="{{ h.history_id }}">{{h.timestamp[:10]}}: {{h.principal_name }}</option>
                     {% endfor %}
                 </select>
             </div>

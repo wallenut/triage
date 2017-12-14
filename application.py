@@ -41,13 +41,10 @@ def index():
     """Handle requests for / via GET (and POST)"""
     name = ""
     if "user_id" in session.keys():
-        print (session["user_id"])
         name = db.execute("SELECT username FROM users WHERE id = :i", i=session["user_id"])[0]["username"]
-        user_history = db.execute("SELECT history.id as history_id, history.user_id as user_id, principals.id as principal_id, principals.name as principal_name FROM\
+        user_history = db.execute("SELECT history.timestamp as timestamp, history.id as history_id, history.user_id as user_id, principals.id as principal_id, principals.name as principal_name FROM\
         history JOIN principals ON history.principal_id = principals.id WHERE history.user_id = :u GROUP BY history.id", u = session["user_id"])
-        print(user_history)
         if len(user_history):
-            print("rendering with previous history")
             return render_template("index.html", history=user_history, name=name)
     return render_template("index.html", history=[], name=name)
 
@@ -80,75 +77,88 @@ def register():
 
 @app.route("/history", methods=["POST"])
 def history():
-    history_id = request.form.get("history_id")
-    results = db.execute("SELECT * FROM patient_results WHERE history = :h", h=history_id)
-    labels = [{'id':result["diagnosis_id"], 'name': result["diagnosis_name"]} for result in results]
-    percents = [ result["probability"] for result in results]
-    return render_template("results.html", percents=percents, labels=labels)
+    """Display a user's prior results."""
+    # POST
+    if request.method == "POST":
+        history_id = request.form.get("history_id")
+        results = db.execute("SELECT * FROM patient_results WHERE history = :h", h=history_id)
+        labels = [{'id':result["diagnosis_id"], 'name': result["diagnosis_name"]} for result in results]
+        percents = [ result["probability"] for result in results]
+        return render_template("results.html", percents=percents, labels=labels)
+    # GET
+    else:
+        return redirect("/")
 
 @app.route("/addLikelihoods", methods=["GET", "POST"])
-# @login_required
 def addLikelihoods():
-    """Handle requests for / via GET (and POST)"""
-    if request.method == "GET":
+    """Handle requests for adding likelihoods via GET (and POST)"""
+    # Permissions
+    if "user_id" not in session or "doctor" not in session:
+        return redirect("/")
+    # GET
+    elif request.method == "GET":
         principals = db.execute("SELECT id, name FROM principals")
         return render_template("select_diagnosis.html", principals=principals, action="addLikelihoods")
+    # POST
     elif request.method == "POST":
         req = request.form.to_dict()
-        if "newPrincipal" in req:
+        # Adding likelihoods
+        if "newPrincipal" in req and len(req["newPrincipal"]) > 0:
             add_principals(req["newPrincipal"])
             principal = db.execute("SELECT id FROM principals WHERE name = :name", name=req["newPrincipal"])[0]["id"]
+        # Updating likelihoods
+        elif "principal_id" in req:
+            principal = req["principal_id"]
+        # No likelihood submitted
         else:
-            principal = request.form.get("principal_id")
+            return render_template("error.html", message="No principal selected or added.")
+        # Query old likelihoods and format into matrix to update or add
         oldLikelihoods = db.execute("SELECT * FROM likelihoods WHERE principal = :principal", principal=principal);
         d = get_diagnoses()
         q = get_questions()
         likelihoodMatrix = [[1 for x in range(len(d))] for y in range(len(q))]
-        # print (oldLikelihoods)
         questions = list(map((lambda x: x["question"]), q))
         diagnoses = list(map((lambda x: x["name"]), d))
-        print(questions)
-        print(diagnoses)
         for likelihood in oldLikelihoods:
             likelihoodMatrix[likelihood["question"] - 1][likelihood["diagnosis"] - 1] = likelihood["likelihood"]
-        print (likelihoodMatrix)
-        print (principal)
         return render_template("updateLikelihoods.html", principal=principal, likelihoodMatrix=likelihoodMatrix, questions=questions, diagnoses=diagnoses)
 
-@app.route("/updateLikelihoods", methods=["POST"])
-# @login_required
+@app.route("/updateLikelihoods", methods=["GET", "POST"])
 def updateLikelihoods():
-    print("in update likelihoods")
+    """Handle requests for updating likelihoods via GET (and POST)"""
+    # Permissions
+    if request.method == "GET" or "user_id" not in session or "doctor" not in session:
+        return redirect("/")
     updateMatrix = request.form.to_dict()
     updateMatrix.pop("update", None)
     p = int(updateMatrix["principal"])
     updateMatrix.pop("principal", None)
-    print(updateMatrix)
     for k in updateMatrix:
         if updateMatrix[k] == "1":
             continue
-        #split to get question and diagnosis number
+        # Split to get question and diagnosis number
         qdList = k.split(",")
         q = int(qdList[0])
         d = int(qdList[1])
         l = float(updateMatrix[k])
         updateTest = db.execute("SELECT likelihood FROM likelihoods WHERE principal = :p AND diagnosis = :d AND question = :q", p=p, d=d, q=q)
-        #if we are to update or insert this new likelihood
+        # Update existing likelihood
         if len(updateTest):
             db.execute("UPDATE likelihoods SET likelihood = :l WHERE principal = :p AND diagnosis = :d AND question = :q", l=l, p=p, d=d, q=q)
+        # Add new likelihood
         else:
-            #we have to insert a new likelihood
             add_likelihoods(p, d, q, l)
         return redirect("/")
 
 @app.route("/logout", methods=["GET"])
 def logout():
+    """Clears session and logs user out."""
     session.clear()
     return redirect("/")
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-
+    """Handle requests for login via GET (and POST)"""
     if "user_id" in session.keys():
         return redirect("/")
     elif request.method == "GET":
@@ -174,25 +184,34 @@ def login():
         return redirect("/")
 
 @app.route("/diagnose", methods=["GET", "POST"])
-# @login_required
 def diagnose():
-    #display the principals listed as a select option
-    if request.method == "GET":
+    """Handle requests for diagnosing symptoms via GET (and POST)"""
+    # Permissions
+    if "user_id" not in session:
+        return redirect("/")
+    # GET
+    elif request.method == "GET":
         principals = db.execute("SELECT id, name FROM principals")
         return render_template("select_diagnosis.html", principals=principals, action="diagnose")
+    # POST
     elif request.method == "POST":
-        principal = request.form.get("principal_id")
-        print (principal)
+        req = request.form.to_dict()
+        if "principal_id" not in req:
+            return render_template("error.html", message="No principal symptom selected to diagnose.")
+        principal = req["principal_id"]
         questions = db.execute("SELECT id, question FROM questions");
         history_id = db.execute("INSERT INTO history (user_id, principal_id) VALUES (:u, :p)", u=session["user_id"], p=principal)
-        print("added new id to history")
         return render_template("personalInfo.html", history=history_id, questions=questions)
 
-@app.route("/personalInfo", methods=["POST"])
+@app.route("/personalInfo", methods=["GET", "POST"])
 def personalInfo():
-    #processess personal info aka select 1-5 and question 6
+    """Handle requests for processing personal information via GET (and POST)"""
+    # Permissions
+    if request.method == "GET" or "user_id" not in session:
+        return redirect("/")
+
+    # Processes answered questions
     data = request.form.to_dict()
-    print(data)
     history = int(data["history"])
     answers = []
     for i in range(5):
@@ -201,65 +220,109 @@ def personalInfo():
         else:
             answers.append(0)
     answers.append(int(data["6"]))
-    #adding default value of 0 for ethnicity - weird question
+    # Adding default value of 0 for ethnicity - non discrete variable
     answers.append(0)
     data.pop("history", None)
     data.pop("age_range", None)
     data.pop("6", None)
     return render_template("/symptomContext.html", history=history, answers=answers, questions=data)
 
-@app.route("/symptomContext", methods=["POST"])
+@app.route("/symptomContext", methods=["GET", "POST"])
 def symptomContext():
+    """Handle requests for processing symptom context via GET (and POST)"""
+    # Permissions
+    if request.method == "GET" or "user_id" not in session:
+        return redirect("/")
     history, answers, questions = display_questions(16)
     return render_template("/symptomDescriptions.html", history=history, answers=answers, questions=questions)
 
-@app.route("/symptomDescriptions", methods=["POST"])
+@app.route("/symptomDescriptions", methods=["GET", "POST"])
 def symptomDescriptions():
+    """Handle requests for processing symptom descriptions via GET (and POST)"""
+    # Permissions
+    if request.method == "GET" or "user_id" not in session:
+        return redirect("/")
     history, answers, questions = display_questions(20)
     return render_template("/coughQuestions.html", history=history, answers=answers, questions=questions)
 
-@app.route("/coughQuestions", methods=["POST"])
+@app.route("/coughQuestions", methods=["GET", "POST"])
 def coughQuestions():
+    """Handle requests for processing cough via GET (and POST)"""
+    # Permissions
+    if request.method == "GET" or "user_id" not in session:
+        return redirect("/")
     history, answers, questions = display_questions(26)
     return render_template("/bodyTemperature.html", history=history, answers=answers, questions=questions)
 
-@app.route("/bodyTemperature", methods=["POST"])
+@app.route("/bodyTemperature", methods=["GET", "POST"])
 def bodyTemperature():
+    """Handle requests for processing temperature via GET (and POST)"""
+    # Permissions
+    if request.method == "GET" or "user_id" not in session:
+        return redirect("/")
     history, answers, questions = display_questions(29)
     return render_template("/chillsQuestions.html", history=history, answers=answers, questions=questions)
 
-@app.route("/chillsQuestions", methods=["POST"])
+@app.route("/chillsQuestions", methods=["GET", "POST"])
 def chillsQuestions():
+    """Handle requests for processing chills via GET (and POST)"""
+    # Permissions
+    if request.method == "GET" or "user_id" not in session:
+        return redirect("/")
     history, answers, questions = display_questions(36)
     return render_template("/noseEyes.html", history=history, answers=answers, questions=questions)
 
-@app.route("/noseEyes", methods=["POST"])
+@app.route("/noseEyes", methods=["GET", "POST"])
 def noseEyes():
+    """Handle requests for processing information via GET (and POST)"""
+    # Permissions
+    if request.method == "GET" or "user_id" not in session:
+        return redirect("/")
     history, answers, questions = display_questions(41)
     return render_template("/headPain.html", history=history, answers=answers, questions=questions)
 
-@app.route("/headPain", methods=["POST"])
+@app.route("/headPain", methods=["GET", "POST"])
 def headPain():
+    """Handle requests for processing information via GET (and POST)"""
+    # Permissions
+    if request.method == "GET" or "user_id" not in session:
+        return redirect("/")
     history, answers, questions = display_questions(48)
     return render_template("/musclePain.html", history=history, answers=answers, questions=questions)
 
-@app.route("/musclePain", methods=["POST"])
+@app.route("/musclePain", methods=["GET", "POST"])
 def musclePain():
+    """Handle requests for processing muscle information via GET (and POST)"""
+    # Permissions
+    if request.method == "GET" or "user_id" not in session:
+        return redirect("/")
     history, answers, questions = display_questions(55)
     return render_template("/duration.html", history=history, answers=answers, questions=questions)
 
-@app.route("/duration", methods=["POST"])
+@app.route("/duration", methods=["GET", "POST"])
 def duration():
+    """Handle requests for processing duration via GET (and POST)"""
+    # Permissions
+    if request.method == "GET" or "user_id" not in session:
+        return redirect("/")
     history, answers, questions = display_questions(62)
     return render_template("/specifics.html", history=history, answers=answers, questions=questions)
 
-@app.route("/specifics", methods=["POST"])
+@app.route("/specifics", methods=["GET", "POST"])
 def specifics():
+    """Handle requests for processing specific information via GET (and POST)"""
+    # Permissions
+    if request.method == "GET" or "user_id" not in session:
+        return redirect("/")
     history, answers, questions = display_questions(78)
     return render_template("/smoking.html", history=history, answers=answers, questions=questions)
 
-@app.route("/smoking", methods=["POST"])
+@app.route("/smoking", methods=["GET", "POST"])
 def smoking():
+    """Handle requests for processing smoking and calculating likelihoods via GET (and POST)"""
+    # Permissions
+    if request.method == "GET" or "user_id" not in session:
+        return redirect("/")
     data = request.form.to_dict()
     history = int(data["history"])
 
@@ -272,6 +335,8 @@ def smoking():
     row = db.execute("SELECT principal_id FROM history WHERE id = :h", h=history)
     if len(row) == 1:
         return calculate_probabilities(int(row[0]["principal_id"]), answers, history)
+    else:
+        return render_template("error.html", message="Unexpected error calculating likelihoods. No principal symptom entered.")
 
 ####################
 ####  Methods  #####

@@ -5,6 +5,7 @@
 {% endblock %}
 
 {% block main %}
+    {% if (labels|length) > 0 %}
     <table class="table table-striped">
         <tbody>
             {% for i in range(labels|length) %}
@@ -16,4 +17,7 @@
             {% endfor %}
         </tbody>
     </table>
+    {% else %}
+    <h2>Your health is doing well! No need to seek further medical attention.</h2>
+    {% endif %}
 {% endblock %}
