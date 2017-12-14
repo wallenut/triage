@@ -11,7 +11,7 @@
             {% for i in range(labels|length) %}
                 <tr>
                     <td>
-                        {{labels[i]["name"].ljust(40) + "with probability " + percents[i]|string}}
+                        {{labels[i]["name"].ljust(40) + "with probability " + '%0.2f'| format(percents[i]|float)}}
                     </td>
                 </tr>
             {% endfor %}
